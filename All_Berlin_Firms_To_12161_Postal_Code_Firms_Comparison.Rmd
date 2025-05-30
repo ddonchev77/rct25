@@ -1,0 +1,117 @@
+---
+title: "12161 Postal Code Firms To All Berlin Firms Comparison"
+author: "Danail Donchev"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+```
+
+## 📊 Summary Table for Firms (2021)
+
+```{r summary-table}
+# Load Orbis Data and filter
+orbis_panel_berlin <- readRDS("C:/Users/danai/OneDrive/Documents/rct25/data/generated/orbis_panel_berlin.rds")
+orbis_2021 <- subset(orbis_panel_berlin, year == 2021)
+orbis_2021$equity_ratio <- orbis_2021$shfd / orbis_2021$toas
+pc_12161 <- subset(orbis_2021, postcode == "12161")
+all_berlin <- orbis_2021
+
+# Summary stats
+mean_assets_12161 <- mean(pc_12161$toas, na.rm = TRUE)
+median_assets_12161 <- median(pc_12161$toas, na.rm = TRUE)
+sd_assets_12161 <- sd(pc_12161$toas, na.rm = TRUE)
+n_12161 <- sum(!is.na(pc_12161$toas))
+
+mean_assets_berlin <- mean(all_berlin$toas, na.rm = TRUE)
+median_assets_berlin <- median(all_berlin$toas, na.rm = TRUE)
+sd_assets_berlin <- sd(all_berlin$toas, na.rm = TRUE)
+n_berlin <- sum(!is.na(all_berlin$toas))
+
+pc_12161$equity_ratio <- pc_12161$shfd / pc_12161$toas
+all_berlin$equity_ratio <- all_berlin$shfd / all_berlin$toas
+
+mean_er_12161 <- mean(pc_12161$equity_ratio, na.rm = TRUE) * 100
+median_er_12161 <- median(pc_12161$equity_ratio, na.rm = TRUE) * 100
+sd_er_12161 <- sd(pc_12161$equity_ratio, na.rm = TRUE) * 100
+
+mean_er_berlin <- mean(all_berlin$equity_ratio, na.rm = TRUE) * 100
+median_er_berlin <- median(all_berlin$equity_ratio, na.rm = TRUE) * 100
+sd_er_berlin <- sd(all_berlin$equity_ratio, na.rm = TRUE) * 100
+
+#Run T-Tests
+
+t_assets <- t.test(pc_12161$toas, all_berlin$toas)
+t_equity_ratio <- t.test(pc_12161$equity_ratio, all_berlin$equity_ratio)
+
+# --- Calculate Confidence Intervals and Degrees of Freedom ---
+calculate_ci_and_df <- function(x, conf_level = 0.95) {
+  n <- sum(!is.na(x))
+  mean_x <- mean(x, na.rm = TRUE)
+  sd_x <- sd(x, na.rm = TRUE)
+  se <- sd_x / sqrt(n)
+  df <- n - 1
+  error_margin <- qt(1 - (1 - conf_level)/2, df) * se
+  lower <- mean_x - error_margin
+  upper <- mean_x + error_margin
+  sprintf("[%.2f, %.2f] (DF = %d)", lower * 100, upper * 100, df)
+}
+
+ci_er_12161 <- calculate_ci_and_df(pc_12161$equity_ratio)
+ci_er_berlin <- calculate_ci_and_df(all_berlin$equity_ratio)
+
+summary_table <- data.frame(
+  Metric = c(
+    "Mean Total Assets (€)",
+    "Median Total Assets (€)",
+    "SD Total Assets (€)",
+    "Mean Equity Ratio (%)",
+    "Median Equity Ratio (%)",
+    "SD Equity Ratio (%)",
+    "Equity Ratio (95% CI)",
+    "Sample Size"
+  ),
+  "12161 Firms" = c(
+    round(mean_assets_12161, 2),
+    round(median_assets_12161, 2),
+    round(sd_assets_12161, 2),
+    round(mean_er_12161, 2),
+    round(median_er_12161, 2),
+    round(sd_er_12161, 2),
+    ci_er_12161,
+    n_12161
+  ),
+  "All Berlin Firms" = c(
+    round(mean_assets_berlin, 2),
+    round(median_assets_berlin, 2),
+    round(sd_assets_berlin, 2),
+    round(mean_er_berlin, 2),
+    round(median_er_berlin, 2),
+    round(sd_er_berlin, 2),
+    ci_er_berlin,
+    n_berlin
+  ),
+  "p-value (t-test)" = c(
+    round(t_assets$p.value, 3),
+    "-", "-",
+    round(t_equity_ratio$p.value, 3),
+    "-", "-", "-","-"
+  ),
+  check.names = FALSE
+)
+
+
+
+# Print table with kable
+summary_table %>%
+  kbl(booktabs = TRUE, format = "latex", caption = "Equity Ratio and Asset Summary for 2021") %>%
+  kable_styling(latex_options = c("hold_position", "striped", "scale_down"))
+
+
+```
+
+Notes:Notes: Independent samples t-tests (Welch) were used to compare means. Mann-Whitney U tests compared medians. Levene's tests assessed equality of variances (for SD comparison). Confidence intervals are at the 95% level. Sample sizes (n) are reported for each group.
